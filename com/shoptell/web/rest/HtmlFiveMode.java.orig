@@ -1,0 +1,85 @@
+/***************************************************************************
+ * Copyright (c) 2015 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.web.rest;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.PostConstruct;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.context.annotation.Scope;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.view.RedirectView;
+
+/**
+ * 
+ * @author ravi
+ *
+ * this class is to support html5mode = true
+ * how it works? : Actually main aim is to forward "/" for each and every url (related to states in angularjs)
+ * it does not reload url, so Angularjs MVC takes care of which state to go based on url. 
+ */
+
+// no @RestController
+@Scope("session")
+@Controller
+public class HtmlFiveMode {
+	
+	@PostConstruct
+	public void init(){
+	}
+	
+	/**
+	 * for each url forward to /
+	 * @return
+	 */
+    @RequestMapping({
+        "/about-us/**",
+        "/activate-email/**",
+        "/contact-us/**",
+        "/coupons/**",
+        "/electronics/**",
+        "/faq/**",
+        "/home-appliances/**",
+        "/how-it-works/**",
+        "/kitchen-appliances/**",
+        "/partners/**",
+        "/pdesc/**",
+        "/privacy/**",
+        "/redirect/**",
+        "/referral/**",
+        "/setting/**",
+        "/sitemap/**",
+        "/tnc/**",
+        "/valentine/**"
+    })
+    public String index() {
+        return "forward:/";
+    }
+    
+    @RequestMapping({"/search/**"})
+    public String searchURLRedirect(@RequestParam("q") String q, @RequestParam(value = "id", required = false) String id,
+			@RequestParam(value = "cat", required = false) String category, HttpServletRequest request, HttpServletResponse response) throws Exception {
+        
+    	/*String newUrl = null; //"http://localhost:8080/electronics/desktop-computers-price/{q}"
+    	
+    	response.setStatus(HttpServletResponse.SC_MOVED_PERMANENTLY);
+    	response.setHeader("Location", newUrl);*/
+        return "forward:/";
+    }
+}

@@ -1,0 +1,124 @@
+/***************************************************************************
+ * Copyright (c) 2016 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.backoffice.crons;
+
+import java.util.Collections;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.shoptell.backoffice.BackofficeUtil;
+import com.shoptell.backoffice.enums.TableEnum;
+import com.shoptell.backoffice.repository.BatchRepository;
+import com.shoptell.backoffice.repository.SelectQuery;
+import com.shoptell.backoffice.repository.dto.CBReportDTO;
+import com.shoptell.domain.User;
+import com.shoptell.frontoffice.service.WalletService;
+import com.shoptell.service.SparkPostMailService;
+
+@Named(value = "MonthlySummary")
+public class MonthlySummary {
+	private static final Logger log = LoggerFactory.getLogger(MonthlySummary.class);
+
+	@Inject
+	BatchRepository batchRepository;
+	
+	@Inject
+	private SelectQuery selectQuery;
+
+	@Inject
+	private WalletService walletService;
+	
+	@Inject
+	private SparkPostMailService mailService;
+
+	private Date start;
+
+	private Date end;
+	
+	private String month;
+
+	/*@Scheduled(cron = "${cron.job.monthlyreport}")*/
+	public void init() {
+		log.info("init() Enter");
+		start = BackofficeUtil.getStartOfPrevMonth();
+		end = BackofficeUtil.getEndOfPrevMonth();
+		month = BackofficeUtil.getPrevMonth();
+		execute();
+		log.info("init() Exit");
+	}
+
+	public void execute() {
+		ResultSet rs = selectQuery.selectColumns(TableEnum.user_by_email, "id");
+		if (rs != null) {
+			Iterator<Row> it = rs.iterator();
+			while (it.hasNext()) {
+				Row row = it.next();
+				String userId = row.getString("id");
+				if (StringUtils.isNotBlank(userId)) {
+					User user = batchRepository.getUser(userId);
+					if (user != null && user.isMonthlyAccountStatementNotification())
+						monthReportForUser(userId);
+				}
+			}
+		}
+	}
+
+	private void monthReportForUser(String userId) {
+		double pending = 0, received = 0, paid = 0;
+		List<CBReportDTO> list = walletService.getWalletReport(userId);
+		if (list != null && list.size() > 0) {
+			Collections.sort(list, BackofficeUtil.compareCBReport);
+			Iterator<CBReportDTO> itr = list.iterator();
+			while (itr.hasNext()) {
+				CBReportDTO data = itr.next();
+				Date date = data.getModifiedOn();
+				if (date != null && start.before(date) && end.after(date)) {
+					switch (data.getStatus()) {
+					case "PENDING":
+						pending += Double.parseDouble(data.getCashBackAmount());
+						break;
+					case "RECEIVED":
+						received += Double.parseDouble(data.getCashBackAmount());
+						break;
+					case "WITHDRAWN":
+						paid += Double.parseDouble(data.getCashBackAmount());
+						break;
+					default:
+						itr.remove();
+						break;
+					}
+				}
+				else {
+					itr.remove();
+				}
+			}
+			if (list != null && list.size() > 0){
+				mailService.sendMonthSummary(userId,pending,received,paid,list, month);
+			}
+			else {
+				mailService.sendMissYouEmail(userId);
+			}
+		}
+		else {
+			//TODO Mail to users who did no transactions at all
+		}
+	}
+}

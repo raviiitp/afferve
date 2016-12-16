@@ -1,0 +1,59 @@
+/***************************************************************************
+ * Copyright (c) 2016 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.db.messagelog;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
+
+import com.shoptell.service.MailService;
+
+@Named(value = "PreRenderLog")
+public class PreRenderLog {
+	@Inject
+	private MailService mailService;
+
+	@Async
+	/*@Scheduled(cron = "0 0 0/1 * * ?")*/
+	public void preRenderRunning(){
+		try {
+			String process;
+			String subject = null;
+			boolean server_js_running = false;
+			Process p = Runtime.getRuntime().exec("sudo forever list");
+			StringBuilder message = new StringBuilder();
+			BufferedReader input = new BufferedReader(new InputStreamReader(p.getInputStream()));
+			while ((process = input.readLine()) != null ) {
+				if(process.contains("/usr/local/prerender/server.js")){
+					server_js_running = true;
+				}
+				message.append(process).append("\n");
+			}
+			input.close();
+			
+			java.net.InetAddress localMachine = java.net.InetAddress.getLocalHost();
+			
+			if(!server_js_running){
+				message.append("Prerender not running");
+				subject = "Error! Prerender not running at " + localMachine.getHostName();
+				Runtime.getRuntime().exec("nohup sudo forever start /usr/local/prerender/server.js &");
+			}
+			
+			mailService.sendEmail("ravi@afferve.com", subject, message.toString(), false, true);
+		} catch (Exception err) {
+			err.printStackTrace();
+		}
+	}
+}

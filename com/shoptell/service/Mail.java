@@ -1,0 +1,68 @@
+/***************************************************************************
+ * Copyright (c) 2016 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.service;
+
+import static com.shoptell.backoffice.BackofficeConstants.BATCHSIZE;
+
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+
+import org.springframework.scheduling.annotation.Scheduled;
+
+import com.datastax.driver.core.utils.UUIDs;
+import com.shoptell.backoffice.enums.TableEnum;
+import com.shoptell.backoffice.repository.BatchRepository;
+import com.shoptell.backoffice.repository.InsertQuery;
+import com.shoptell.backoffice.repository.dto.SentMailDTO;
+
+@Named
+@Singleton
+public class Mail {
+
+	@Inject
+	BatchRepository batchRepository;
+	
+	@Inject
+	InsertQuery insertQuery;
+
+	private List<SentMailDTO> list = new LinkedList<SentMailDTO>();
+
+	@PreDestroy
+	public void init() {
+		persist();
+	}
+
+	@Scheduled(fixedDelay = 216000000, initialDelay = 3600000)
+	public synchronized void persist() {
+		batchRepository.batchSave(list);
+		list.clear();
+	}
+
+	public synchronized void saveMail(SentMailDTO sentMailDTO) {
+		list.add(sentMailDTO);
+		if (list.size() > BATCHSIZE) {
+			persist();
+		}
+	}
+
+	public void addNewContact(String userId) {
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("userId", userId);
+		map.put("time", UUIDs.timeBased());
+		insertQuery.insertQuery(TableEnum.newuser, map);
+	}
+}

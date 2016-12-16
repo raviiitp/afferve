@@ -1,0 +1,80 @@
+/***************************************************************************
+ * Copyright (c) 2015 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.db.messagelog;
+
+import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import javax.inject.Inject;
+import javax.inject.Named;
+import javax.inject.Singleton;
+
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.springframework.scheduling.annotation.Scheduled;
+
+import com.shoptell.backoffice.repository.BatchRepository;
+
+/**
+ * @author abhishekagarwal
+ *
+ */
+@Named(value="MessageLogUtil")
+@Singleton
+public class MessageLogUtil {
+
+	private List<MessageLog> messageLogList;
+	
+	@Inject
+	BatchRepository batchRepository;
+
+	@PostConstruct
+	public void start() {
+		messageLogList = new LinkedList<MessageLog>();
+	}
+	
+	public void init(){
+		persist();
+	}
+	
+	public synchronized void add(MessageEnum severity, String description, String message){
+		MessageLog msg = new MessageLog(severity.name(), new Date(System.currentTimeMillis()), description, message);
+		messageLogList.add(msg);
+	}
+
+	public synchronized void add(MessageEnum severity, String description, String message, String...elements) {
+		message = formatMesaage(message,elements);
+		add(severity, description, message);
+	}
+	
+	private String formatMesaage(String message, String[] elements) {
+		for(String element : elements){
+			message = message.replaceFirst("\\{\\}", element);
+		}
+		return message;
+	}
+
+	@PreDestroy
+	/*@Scheduled(fixedDelayString = "${msg.log.delay}")*/
+	private synchronized void persist() {
+		batchRepository.batchSave(messageLogList);
+		messageLogList.clear();
+	}
+
+	public void add(MessageEnum severity, Exception e) {
+		add(severity, ExceptionUtils.getStackTrace(e), e.getMessage());
+	}
+	
+	public void addError(Exception e) {
+		add(MessageEnum.ERROR, ExceptionUtils.getStackTrace(e), e.getMessage());
+	}
+}

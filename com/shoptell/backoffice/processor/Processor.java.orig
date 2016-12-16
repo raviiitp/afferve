@@ -1,0 +1,178 @@
+/***************************************************************************
+ * Copyright (c) 2015 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.backoffice.processor;
+
+import javax.inject.Inject;
+
+import org.apache.commons.lang.StringUtils;
+
+import com.shoptell.backoffice.enums.CategoryEnum;
+import com.shoptell.backoffice.enums.HomeEnum;
+import com.shoptell.backoffice.processor.impl.AcProcessor;
+import com.shoptell.backoffice.processor.impl.BagsProcessor;
+import com.shoptell.backoffice.processor.impl.BookProcessor;
+import com.shoptell.backoffice.processor.impl.CameraProcessor;
+import com.shoptell.backoffice.processor.impl.DesktopProcessor;
+import com.shoptell.backoffice.processor.impl.EyewearProcessor;
+import com.shoptell.backoffice.processor.impl.LaptopProcessor;
+import com.shoptell.backoffice.processor.impl.MicrowaveovenProcessor;
+import com.shoptell.backoffice.processor.impl.MonitorProcessor;
+import com.shoptell.backoffice.processor.impl.PendriveProcessor;
+import com.shoptell.backoffice.processor.impl.RefrigeratorProcessor;
+import com.shoptell.backoffice.processor.impl.SmartphoneProcessor;
+import com.shoptell.backoffice.processor.impl.SportshoeProcessor;
+import com.shoptell.backoffice.processor.impl.SunglassesProcessor;
+import com.shoptell.backoffice.processor.impl.TabletProcessor;
+import com.shoptell.backoffice.processor.impl.TvProcessor;
+import com.shoptell.backoffice.processor.impl.WashingmachineProcessor;
+import com.shoptell.backoffice.processor.impl.WatchesProcessor;
+import com.shoptell.backoffice.processor.impl.WaterpurifierProcessor;
+import com.shoptell.backoffice.repository.dto.HomeProductInfoDTO;
+import com.shoptell.backoffice.repository.dto.ReviewedProductInfoDTO;
+import com.shoptell.db.messagelog.MessageLogUtil;
+
+/**
+ * @author abhishekagarwal
+ *
+ */
+
+public abstract class Processor {
+	@Inject
+	private MessageLogUtil msgLog;
+	@Inject
+	public SmartphoneProcessor smartphone;
+	@Inject
+	public SportshoeProcessor shoe;
+	@Inject
+	public BookProcessor book;
+	@Inject
+	public LaptopProcessor laptop;
+	@Inject
+	public DesktopProcessor desktop;
+	@Inject
+	public MonitorProcessor monitor;
+	@Inject
+	public AcProcessor ac; 					
+	@Inject
+	public RefrigeratorProcessor frige; 	
+	@Inject
+	public TvProcessor tv; 					
+	@Inject
+	public WashingmachineProcessor wm; 
+	@Inject
+	public WaterpurifierProcessor wp;
+	@Inject
+	public MicrowaveovenProcessor oven;
+	@Inject
+	public CameraProcessor camera;
+	@Inject
+	public PendriveProcessor pendrive;
+	@Inject
+	public WatchesProcessor watches;
+	@Inject
+	public EyewearProcessor eyewear;
+	@Inject
+	public SunglassesProcessor sunglass;
+	@Inject
+	public TabletProcessor tablet;
+	@Inject
+	public BagsProcessor bags;
+//	@Inject
+//	public DeodorantProcessor deodorant;
+//	@Inject
+//	public KajalProcessor kajal;
+//	@Inject
+//	public LipstickProcessor lipstick;
+//	@Inject
+//	public NailpolishProcessor nailpolish;
+//	@Inject
+//	public ShampooProcessor shampoo;
+
+	public ReviewedProductInfoDTO processData(HomeProductInfoDTO prod, HomeEnum home) {
+		try {
+			if (CategoryEnum.SMARTPHONES.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return smartphone.process(prod, home);
+			}
+//			else if (CategoryEnum.DEODORANTS.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+//				return deodorant.process(prod, home);
+//			}
+//			else if (CategoryEnum.KAJAL.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+//				return kajal.process(prod, home);
+//			}
+//			else if (CategoryEnum.LIPSTICKS.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+//				return lipstick.process(prod, home);
+//			}
+//			else if (CategoryEnum.NAILPOLISH.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+//				return nailpolish.process(prod, home);
+//			}
+//			else if (CategoryEnum.SHAMPOOS.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+//				return shampoo.process(prod, home);
+//			}
+			else if (CategoryEnum.LAPTOPS.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return laptop.process(prod, home);
+			}
+			else if (CategoryEnum.DESKTOPS.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return desktop.process(prod, home);
+			}
+			else if (CategoryEnum.WASHINGMACHINE.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return wm.process(prod, home);
+			}
+			else if (CategoryEnum.TELEVISION.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return tv.process(prod, home);
+			}
+			else if (CategoryEnum.REFRIGERATOR.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return frige.process(prod, home);
+			}
+			else if (CategoryEnum.AIRCONDITIONER.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return ac.process(prod, home);
+			}
+			else if (CategoryEnum.MICROWAVEOVEN.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return oven.process(prod, home);
+			}
+			else if (CategoryEnum.CAMERA.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return camera.process(prod, home);
+			}
+			else if (CategoryEnum.WATCHES.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return watches.process(prod, home);
+			}
+			else if (CategoryEnum.EYEWEARS.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return eyewear.process(prod, home);
+			}
+			else if (CategoryEnum.SUNGLASSES.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return sunglass.process(prod, home);
+			}
+			else if (CategoryEnum.TABLET.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return tablet.process(prod, home);
+			}
+			else if (CategoryEnum.PENDRIVE.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return pendrive.process(prod, home);
+			}
+			else if (CategoryEnum.BAGS.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return bags.process(prod, home);
+			}
+			else if (CategoryEnum.LUGGAGEBAGS.name().equalsIgnoreCase(prod.getSubCategoryName())) {
+				return bags.process(prod, home);
+			}
+		} catch (Exception e) {
+			msgLog.addError(e);
+		}
+		return null;
+	}
+
+	public String getSubCategory(String category) {
+		if (StringUtils.isNotBlank(category)) {
+			CategoryEnum subCategory = CategoryEnum.getCategory(category);
+			if (subCategory != null) {
+				return subCategory.name();
+			}
+		}
+		return null;
+	}
+}

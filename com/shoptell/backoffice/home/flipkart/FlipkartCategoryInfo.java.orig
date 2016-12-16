@@ -1,0 +1,184 @@
+/***************************************************************************
+ * Copyright (c) 2015 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.backoffice.home.flipkart;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+
+import javax.annotation.PostConstruct;
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
+
+import com.shoptell.backoffice.BackofficeConstants;
+import com.shoptell.backoffice.enums.HomeEnum;
+import com.shoptell.backoffice.home.CategoryInfo;
+import com.shoptell.backoffice.repository.dto.CategoryNodeDTO;
+import com.shoptell.db.processlog.ProcessLog;
+
+/**
+ * @author abhishekagarwal
+ *
+ */
+@Named(value = "FlipkartCategoryInfo")
+public class FlipkartCategoryInfo extends CategoryInfo {
+
+	private static final Logger log = LoggerFactory.getLogger(FlipkartCategoryInfo.class);
+
+	private String affiliateId;
+	private String affiliateBaseUrl;
+
+	private List<CategoryNodeDTO> categoryNodeList;
+
+	@Inject
+	private FlipkartProperties flipkartProperties;
+	@Inject
+	private FlipkartURLCall flipkartURLCall;
+
+	private Set<String> set;
+
+	@PostConstruct
+	public void start() {
+		home = HomeEnum.FLIPKART;
+		this.affiliateId = flipkartProperties.getTrackingID();
+		this.affiliateBaseUrl = "https://affiliate-api.flipkart.net/affiliate/api/" + affiliateId + ".json";
+		set = new HashSet<String>(Arrays.asList(new String[] { "eyewear", "watches", "computer_storage", "mobiles", "laptops", "desktops", "televisions",
+				"computer_peripherals", "air_conditioners", "refrigerator", "washing_machine", "home_appliances", "microwave_ovens", "cameras", "tablets",
+				"grooming_beauty_wellness" }));
+	}
+
+	@Async
+	public void init() {
+		preprocess();
+		execute();
+		postprocess();
+	}
+
+	@Override
+	protected void postprocess() {
+		batchRepository.batchSave(categoryNodeList);
+		categoryNodeList.clear();
+	}
+
+	@Override
+	protected void execute() {
+		log.info("execute() Enter");
+		try {
+			// Query the API service and get back the result.
+			String jsonData = flipkartURLCall.queryService(affiliateBaseUrl, false);
+			if (jsonData == null) {
+				return;
+			}
+			// Bookkeep the retrieved data in a local productDirectory Map.
+			JSONObject obj = new JSONObject(jsonData);
+			JSONObject listing = obj.getJSONObject("apiGroups").getJSONObject("affiliate").getJSONObject("apiListings");
+			Iterator<?> keys = listing.keys();
+			int i = 0;
+			while (keys.hasNext()) {
+				String category_name = (String) keys.next();
+				JSONObject variants = listing.getJSONObject(category_name).getJSONObject("availableVariants");
+
+				// Sort the variants and get the latest version
+				Iterator<?> v_iterator = variants.keys();
+				List<String> variant_keys = new ArrayList<String>();
+				while (v_iterator.hasNext()) {
+					variant_keys.add((String) v_iterator.next());
+				}
+				Collections.sort(variant_keys, Collections.reverseOrder());
+
+				String category_url = variants.getJSONObject(variant_keys.get(0)).getString("get");
+				// Skip all other categories except mobiles, books
+				if (!set.contains(category_name)) {
+					continue;
+				}
+
+				CategoryNodeDTO tmpCategoryNode = new CategoryNodeDTO();
+				tmpCategoryNode.setCategoryId("0" + i++);
+				tmpCategoryNode.setCategoryName(category_name);
+				tmpCategoryNode.setCategoryUrl(category_url);
+				tmpCategoryNode.setHome(HomeEnum.FLIPKART.name());
+				tmpCategoryNode.setLeaf(true);
+				tmpCategoryNode.setParentId(null);
+				tmpCategoryNode.setRoot(true);
+				tmpCategoryNode.setSearchIndex(null);
+				categoryNodeList.add(tmpCategoryNode);
+				if (categoryNodeList.size() > BackofficeConstants.BATCHSIZE) {
+					batchRepository.batchSave(categoryNodeList);
+					categoryNodeList.clear();
+				}
+			}
+
+		} catch (Exception e) {
+			msgLog.addError(e);
+			log.error("EXECUTION ERROR", e);
+		}
+		log.info("execute() Exit");
+	}
+
+	@Override
+	protected void preprocess() {
+		categoryNodeList = new ArrayList<CategoryNodeDTO>();
+	}
+
+	/**
+	 * @return the list
+	 */
+	public List<CategoryNodeDTO> getList() {
+		return categoryNodeList;
+	}
+
+	/**
+	 * @param list
+	 *            the list to set
+	 */
+	public void setList(List<CategoryNodeDTO> list) {
+		this.categoryNodeList = list;
+	}
+
+	public boolean getStatus(List<ProcessLog> processList) {
+		if (processList.contains(process)) {
+			return false;
+		}
+		return true;
+	}
+
+	public List<CategoryNodeDTO> findLeaf() {
+		List<CategoryNodeDTO> categoryNodeList = new LinkedList<CategoryNodeDTO>();
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "mobiles"));*/
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "air_conditioners"));*/
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "televisions"));*/
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "laptops"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "refrigerator"));
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "washing_machine"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "desktops"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "microwave_ovens"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "cameras"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "computer_storage"))*/;
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "tablets"));*/
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "watches"));
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(), "eyewear"));
+		// categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(),
+		// "computer_peripherals"));
+		// categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.FLIPKART.name(),
+		// "grooming_beauty_wellness"));
+		return categoryNodeList;
+	}
+
+}

@@ -1,0 +1,490 @@
+/***************************************************************************
+ * Copyright (c) 2016 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.backoffice.repository.dto;
+
+import java.io.Serializable;
+import java.time.Period;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+
+import org.apache.commons.lang.StringUtils;
+
+import com.datastax.driver.core.utils.UUIDs;
+import com.datastax.driver.mapping.annotations.ClusteringColumn;
+import com.datastax.driver.mapping.annotations.PartitionKey;
+import com.datastax.driver.mapping.annotations.Table;
+import com.datastax.driver.mapping.annotations.Transient;
+import com.shoptell.backoffice.BackofficeUtil;
+
+@Table(keyspace = "afferve", name = "partner_coupons")
+public class PartnerCouponsDTO implements Serializable {
+
+	private static final long serialVersionUID = 1L;
+
+	@ClusteringColumn(value = 0)
+	private UUID time;
+	@PartitionKey
+	private String home;// Flipkart
+	private String matcher; // FLIPKART all capital
+	private String logo; // Flipkart logo name FLIPKART.png
+	private String header_text; // header text appears in coupon; max 40
+								// characters
+	private String afferve_cb; // + Up to 8.5% Extra Cashback by Afferve after
+								// 15%deduction
+	private Date expireDate;
+	private Date createdOn;
+	private String url; // URL
+	private String body_text; // body text
+	private String body_image; // body image if any (but it will overlap body
+								// text
+	private String footer_text; // not for now
+	private String type; // E, M; M is for coupons; E is for entertainment like
+							// blog, youtube
+	private List<String> belongsTo; // [FLIPKART, LIFESTYLE, FASHION] or
+									// [AMAZON, ELECTRONICS] all capital
+	private String couponCode;
+	
+	private boolean hasCouponCode;
+	
+	@Transient
+	private String expiryText;
+
+	public PartnerCouponsDTO() {
+		super();
+		this.time = UUIDs.timeBased();
+		this.createdOn = new Date(System.currentTimeMillis());
+	}
+
+	public PartnerCouponsDTO(String home, String matcher, String logo, String header_text, String afferve_cb, Date expireDate, String url, String body_text,
+			String body_image, String footer_text, String type, List<String> belongsTo, String couponCode) {
+		super();
+		this.time = UUIDs.timeBased();
+		this.home = home;
+		this.matcher = matcher;
+		this.logo = logo;
+		this.header_text = header_text;
+		this.afferve_cb = afferve_cb;
+		this.expireDate = expireDate;
+		this.createdOn = new Date(System.currentTimeMillis());
+		this.url = url;
+		this.body_text = body_text;
+		this.body_image = body_image;
+		this.footer_text = footer_text;
+		this.type = type;
+		this.belongsTo = belongsTo;
+		this.couponCode = couponCode;
+		this.hasCouponCode = StringUtils.isNotBlank(couponCode);
+	}
+
+	/**
+	 * @return the time
+	 */
+	public UUID getTime() {
+		return time;
+	}
+
+	/**
+	 * @param time
+	 *            the time to set
+	 */
+	public void setTime(UUID time) {
+		this.time = time;
+	}
+
+	/**
+	 * @return the home
+	 */
+	public String getHome() {
+		return home;
+	}
+
+	/**
+	 * @param home
+	 *            the home to set
+	 */
+	public void setHome(String home) {
+		this.home = home;
+	}
+
+	/**
+	 * @return the matcher
+	 */
+	public String getMatcher() {
+		return matcher;
+	}
+
+	/**
+	 * @param matcher
+	 *            the matcher to set
+	 */
+	public void setMatcher(String matcher) {
+		this.matcher = matcher;
+	}
+
+	/**
+	 * @return the logo
+	 */
+	public String getLogo() {
+		return logo;
+	}
+
+	/**
+	 * @param logo
+	 *            the logo to set
+	 */
+	public void setLogo(String logo) {
+		this.logo = logo;
+	}
+
+	/**
+	 * @return the header_text
+	 */
+	public String getHeader_text() {
+		return header_text;
+	}
+
+	/**
+	 * @param header_text
+	 *            the header_text to set
+	 */
+	public void setHeader_text(String header_text) {
+		this.header_text = header_text;
+	}
+
+	/**
+	 * @return the afferve_cb
+	 */
+	public String getAfferve_cb() {
+		return afferve_cb;
+	}
+
+	/**
+	 * @param afferve_cb
+	 *            the afferve_cb to set
+	 */
+	public void setAfferve_cb(String afferve_cb) {
+		this.afferve_cb = afferve_cb;
+	}
+
+	/**
+	 * @return the expireDate
+	 */
+	public Date getExpireDate() {
+		return expireDate;
+	}
+
+	/**
+	 * @param expireDate
+	 *            the expireDate to set
+	 */
+	public void setExpireDate(Date expireDate) {
+		this.expireDate = expireDate;
+	}
+
+	/**
+	 * @return the createdOn
+	 */
+	public Date getCreatedOn() {
+		return createdOn;
+	}
+
+	/**
+	 * @param createdOn
+	 *            the createdOn to set
+	 */
+	public void setCreatedOn(Date createdOn) {
+		this.createdOn = createdOn;
+	}
+
+	/**
+	 * @return the url
+	 */
+	public String getUrl() {
+		return url;
+	}
+
+	/**
+	 * @param url
+	 *            the url to set
+	 */
+	public void setUrl(String url) {
+		this.url = url;
+	}
+
+	/**
+	 * @return the body_text
+	 */
+	public String getBody_text() {
+		return body_text;
+	}
+
+	/**
+	 * @param body_text
+	 *            the body_text to set
+	 */
+	public void setBody_text(String body_text) {
+		this.body_text = body_text;
+	}
+
+	/**
+	 * @return the body_image
+	 */
+	public String getBody_image() {
+		return body_image;
+	}
+
+	/**
+	 * @param body_image
+	 *            the body_image to set
+	 */
+	public void setBody_image(String body_image) {
+		this.body_image = body_image;
+	}
+
+	/**
+	 * @return the footer_text
+	 */
+	public String getFooter_text() {
+		return footer_text;
+	}
+
+	/**
+	 * @param footer_text
+	 *            the footer_text to set
+	 */
+	public void setFooter_text(String footer_text) {
+		this.footer_text = footer_text;
+	}
+
+	/**
+	 * @return the type
+	 */
+	public String getType() {
+		return type;
+	}
+
+	/**
+	 * @param type
+	 *            the type to set
+	 */
+	public void setType(String type) {
+		this.type = type;
+	}
+
+	/**
+	 * @return the belongsTo
+	 */
+	public List<String> getBelongsTo() {
+		return belongsTo;
+	}
+
+	/**
+	 * @param belongsTo
+	 *            the belongsTo to set
+	 */
+	public void setBelongsTo(List<String> belongsTo) {
+		this.belongsTo = belongsTo;
+	}
+
+	/**
+	 * @return the expiryText
+	 */
+	public String getExpiryText() {
+		if (this.expireDate != null) {
+			Date currDate = new Date(System.currentTimeMillis());
+			if (expireDate.before(currDate)) {
+				setExpiryText("Already Expired");
+			}
+			else {
+				expiryText = "Expires In ";
+				Period p = Period.between(BackofficeUtil.asLocalDate(currDate), BackofficeUtil.asLocalDate(expireDate));
+				int m = p.getMonths();
+				int d = p.getDays();
+				if (m > 0) {
+					if (m == 1) {
+						expiryText += m + " Month";
+					}
+					else {
+						expiryText += m + " Months";
+					}
+				}
+				else if (d > 0) {
+					expiryText += (d + 1) + " Days";
+				}
+				else {
+					expiryText = "Expires Today";
+				}
+			}
+
+		}
+		if (StringUtils.isBlank(expiryText)){
+			return null;
+		}
+		return expiryText.toUpperCase();
+	}
+
+	/**
+	 * @param expiryText
+	 *            the expiryText to set
+	 */
+	public void setExpiryText(String expiryText) {
+		this.expiryText = expiryText;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((afferve_cb == null) ? 0 : afferve_cb.hashCode());
+		result = prime * result + ((belongsTo == null) ? 0 : belongsTo.hashCode());
+		result = prime * result + ((body_image == null) ? 0 : body_image.hashCode());
+		result = prime * result + ((body_text == null) ? 0 : body_text.hashCode());
+		result = prime * result + ((couponCode == null) ? 0 : couponCode.hashCode());
+		result = prime * result + ((createdOn == null) ? 0 : createdOn.hashCode());
+		result = prime * result + ((expireDate == null) ? 0 : expireDate.hashCode());
+		result = prime * result + ((expiryText == null) ? 0 : expiryText.hashCode());
+		result = prime * result + ((footer_text == null) ? 0 : footer_text.hashCode());
+		result = prime * result + (hasCouponCode ? 1231 : 1237);
+		result = prime * result + ((header_text == null) ? 0 : header_text.hashCode());
+		result = prime * result + ((home == null) ? 0 : home.hashCode());
+		result = prime * result + ((logo == null) ? 0 : logo.hashCode());
+		result = prime * result + ((matcher == null) ? 0 : matcher.hashCode());
+		result = prime * result + ((time == null) ? 0 : time.hashCode());
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		result = prime * result + ((url == null) ? 0 : url.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PartnerCouponsDTO other = (PartnerCouponsDTO) obj;
+		if (afferve_cb == null) {
+			if (other.afferve_cb != null)
+				return false;
+		} else if (!afferve_cb.equals(other.afferve_cb))
+			return false;
+		if (belongsTo == null) {
+			if (other.belongsTo != null)
+				return false;
+		} else if (!belongsTo.equals(other.belongsTo))
+			return false;
+		if (body_image == null) {
+			if (other.body_image != null)
+				return false;
+		} else if (!body_image.equals(other.body_image))
+			return false;
+		if (body_text == null) {
+			if (other.body_text != null)
+				return false;
+		} else if (!body_text.equals(other.body_text))
+			return false;
+		if (couponCode == null) {
+			if (other.couponCode != null)
+				return false;
+		} else if (!couponCode.equals(other.couponCode))
+			return false;
+		if (createdOn == null) {
+			if (other.createdOn != null)
+				return false;
+		} else if (!createdOn.equals(other.createdOn))
+			return false;
+		if (expireDate == null) {
+			if (other.expireDate != null)
+				return false;
+		} else if (!expireDate.equals(other.expireDate))
+			return false;
+		if (expiryText == null) {
+			if (other.expiryText != null)
+				return false;
+		} else if (!expiryText.equals(other.expiryText))
+			return false;
+		if (footer_text == null) {
+			if (other.footer_text != null)
+				return false;
+		} else if (!footer_text.equals(other.footer_text))
+			return false;
+		if (hasCouponCode != other.hasCouponCode)
+			return false;
+		if (header_text == null) {
+			if (other.header_text != null)
+				return false;
+		} else if (!header_text.equals(other.header_text))
+			return false;
+		if (home == null) {
+			if (other.home != null)
+				return false;
+		} else if (!home.equals(other.home))
+			return false;
+		if (logo == null) {
+			if (other.logo != null)
+				return false;
+		} else if (!logo.equals(other.logo))
+			return false;
+		if (matcher == null) {
+			if (other.matcher != null)
+				return false;
+		} else if (!matcher.equals(other.matcher))
+			return false;
+		if (time == null) {
+			if (other.time != null)
+				return false;
+		} else if (!time.equals(other.time))
+			return false;
+		if (type == null) {
+			if (other.type != null)
+				return false;
+		} else if (!type.equals(other.type))
+			return false;
+		if (url == null) {
+			if (other.url != null)
+				return false;
+		} else if (!url.equals(other.url))
+			return false;
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return "PartnerCouponsDTO [time=" + time + ", home=" + home + ", matcher=" + matcher + ", logo=" + logo + ", header_text=" + header_text
+				+ ", afferve_cb=" + afferve_cb + ", expireDate=" + expireDate + ", createdOn=" + createdOn + ", url=" + url + ", body_text=" + body_text
+				+ ", body_image=" + body_image + ", footer_text=" + footer_text + ", type=" + type + ", belongsTo=" + belongsTo + ", couponCode=" + couponCode
+				+ ", hasCouponCode=" + hasCouponCode + ", expiryText=" + expiryText + "]";
+	}
+
+	/**
+	 * @return the couponCode
+	 */
+	public String getCouponCode() {
+		return couponCode;
+	}
+
+	/**
+	 * @param couponCode the couponCode to set
+	 */
+	public void setCouponCode(String couponCode) {
+		this.couponCode = couponCode;
+	}
+
+	public boolean isHasCouponCode() {
+		return hasCouponCode;
+	}
+
+	public void setHasCouponCode(boolean hasCouponCode) {
+		this.hasCouponCode = hasCouponCode;
+	}
+
+}

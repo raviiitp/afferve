@@ -1,0 +1,277 @@
+/***************************************************************************
+ * Copyright (c) 2015 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.backoffice.home.amazon;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.annotation.PostConstruct;
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
+
+import AWSECommerce.BrowseNode;
+import AWSECommerce.BrowseNode.Ancestors;
+import AWSECommerce.BrowseNode.Children;
+import AWSECommerce.BrowseNodeLookupRequest;
+import AWSECommerce.BrowseNodes;
+
+import com.shoptell.backoffice.BackofficeConstants;
+import com.shoptell.backoffice.enums.HomeEnum;
+import com.shoptell.backoffice.home.CategoryInfo;
+import com.shoptell.backoffice.repository.dto.CategoryNodeDTO;
+import com.shoptell.db.messagelog.MessageEnum;
+
+/**
+ * 
+ * @author abhishekagarwal
+ *
+ */
+@Named(value = "AmazonCategoryInfo")
+public class AmazonCategoryInfo extends CategoryInfo{
+	private final Logger log = LoggerFactory.getLogger(AmazonCategoryInfo.class);
+
+	@Inject
+	private AmazonApi amazonApi;
+	private List<CategoryNodeDTO> rootNodeList;
+	private List<CategoryNodeDTO> nodeList;
+	private StringBuilder errorNodes;
+	
+	@PostConstruct
+	public void start(){
+		home = HomeEnum.AMAZON;
+	}
+
+	@Async
+	public void init() {
+		preprocess();
+		execute();
+		postprocess();
+	}
+
+	@Override
+	protected void postprocess() {
+		msgLog.add(MessageEnum.DEBUG, "Error BrowseNodes at Time: " + new Date(System.currentTimeMillis()), errorNodes.toString());
+		batchRepository.batchSave(nodeList);
+		nodeList.clear();
+	}
+
+	@Override
+	protected void execute() {
+		Map<String, String> map = new HashMap<String, String>();
+		for (CategoryNodeDTO category : rootNodeList) {
+			
+			//Stopping running Thread
+			if (Thread.currentThread().isInterrupted()){
+				return;
+			}
+
+			map.clear();
+			map.put(category.getCategoryId(), category.getSearchIndex());
+
+			List<CategoryNodeDTO> categoryNodeList = browseNodeLookupApi(map);
+
+			if (categoryNodeList != null && categoryNodeList.size() > 0) {
+				nodeList.addAll(categoryNodeList);
+			}
+			
+			if (nodeList.size() > BackofficeConstants.BATCHSIZE) {
+				batchRepository.batchSave(nodeList);
+				nodeList.clear();
+			}
+		}
+	}
+
+	@Override
+	protected void preprocess() {
+		nodeList = new LinkedList<CategoryNodeDTO>();
+		errorNodes = new StringBuilder();
+		rootNodeList = categoryNodeRepository.findAllRoot(HomeEnum.AMAZON.name());
+	}
+
+	/*
+	 * nodes is a map of BrowseNodeId vs Search index
+	 */
+	public List<CategoryNodeDTO> browseNodeLookupApi(Map<String, String> nodes) {
+		log.info("BrowseNodeLookupApi.browseNodeLookupApi() Start - ");
+		try {
+			Thread.sleep(500);
+		} catch (InterruptedException e1) {
+			log.error(e1.getMessage());
+			e1.printStackTrace();
+		}
+
+		List<CategoryNodeDTO> categoryNodeList = new LinkedList<CategoryNodeDTO>();
+
+		List<BrowseNodeLookupRequest> requests = new LinkedList<BrowseNodeLookupRequest>();
+		BrowseNodeLookupRequest request = new BrowseNodeLookupRequest();
+
+		Set<Set<String>> keySet = new HashSet<Set<String>>();
+
+		Set<String> keys = nodes.keySet();
+
+		if (nodes.keySet().size() > 10) {
+			keys = new HashSet<String>();
+			int index = 1;
+			for (String ky : nodes.keySet()) {
+				keys.add(ky);
+				index++;
+				if (index % 10 == 0) {
+					keySet.add(keys);
+					keys = new HashSet<String>();
+				}
+			}
+		}
+		keySet.add(keys);
+		for (Set<String> keysLoop : keySet) {
+			request.getBrowseNodeId().clear();
+			request.getBrowseNodeId().addAll(keysLoop);
+			/*request.getResponseGroup().addAll(Arrays.asList(new String[] { "TopSellers", "NewReleases" }));*/
+			requests.add(request);
+
+			List<BrowseNodes> response = null;
+			try {
+				response = amazonApi.browseNodeLookupApiCall(requests);
+			} catch (Exception e) {
+				for (String errKey : keys)
+					errorNodes.append(errKey).append(" ,");
+			}
+
+			if (response != null) {
+				for (BrowseNodes resp : response) {
+					List<BrowseNode> nodeList = resp.getBrowseNode();
+					if (nodeList != null) {
+						Iterator<BrowseNode> itr = nodeList.iterator();
+						while (itr.hasNext()) {
+							BrowseNode node = itr.next();
+							String index = nodes.get(node.getBrowseNodeId());
+
+							populateCategory(index, node, categoryNodeList);
+						}
+					}
+				}
+			}
+		}
+
+		log.info("BrowseNodeLookupApi.browseNodeLookupApi() End.");
+		return categoryNodeList;
+	}
+
+	private void browseChildNodes(List<BrowseNode> childs, String index, List<CategoryNodeDTO> categoryNodeList) {
+		if (childs == null)
+			return;
+
+		Map<String, String> map = new HashMap<String, String>();
+		for (BrowseNode node : childs) {
+			map.put(node.getBrowseNodeId(), index);
+		}
+
+		categoryNodeList.addAll(browseNodeLookupApi(map));
+	}
+
+	private void populateCategory(String index, BrowseNode node, List<CategoryNodeDTO> categoryNodeList) {
+		CategoryNodeDTO categoryNode = new CategoryNodeDTO(node.getBrowseNodeId(), node.getName(), null, index, false, false);
+		categoryNode.setHome(HomeEnum.AMAZON.name());
+		Children children = node.getChildren();
+		if (children != null) {
+			List<BrowseNode> childNodes = children.getBrowseNode();
+			if (childNodes != null) {
+				browseChildNodes(childNodes, index, categoryNodeList);
+			}
+		}
+		else {
+			categoryNode.setLeaf(true);
+		}
+
+		Ancestors ancestor = node.getAncestors();
+		if (ancestor != null) {
+			categoryNode.setParentId(ancestor.getBrowseNode().get(0).getBrowseNodeId());
+		}
+		else {
+			categoryNode.setRoot(true);
+		}
+		categoryNodeList.add(categoryNode);
+	}
+
+	/**
+	 * @return the errorNodes
+	 */
+	public StringBuilder getErrorNodes() {
+		return errorNodes;
+	}
+
+	/**
+	 * @param errorNodes
+	 *            the errorNodes to set
+	 */
+	public void setErrorNodes(StringBuilder errorNodes) {
+		this.errorNodes = errorNodes;
+	}
+
+	public List<CategoryNodeDTO> findLeaf() {
+		List<CategoryNodeDTO> categoryNodeList = new LinkedList<CategoryNodeDTO>();
+		
+		//pendrive
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Pen Drives"));*/
+		
+		//watches
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Girls"));
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Women"));
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Boys"));
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Men"));
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Advanced Search"));
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "WatchBands"));
+		
+		//eyewear
+//		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Spectacle Frames"));
+		
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Smartphones"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Tablets"));*/
+		
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Air Conditioners & Coolers"));*/
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Televisions"));*/
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Laptops"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Desktops"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Refrigerators"));
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Washing Machines & Dryers"));*/
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Microwave Ovens"));*/
+		
+		/*categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Point & Shoot Digital Cameras"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Digital SLRs"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "SLRs"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Spy Cameras"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Instant Cameras"));
+		categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Mirrorless System Cameras"));*/
+		
+		//categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Monitors"));
+		//categoryNodeList.addAll(categoryNodeRepository.findAllLeaves(HomeEnum.AMAZON.name()));
+		return categoryNodeList;
+	}
+	
+	public List<CategoryNodeDTO> findLeafBySearchIndex() {
+		List<CategoryNodeDTO> categoryNodeList = new LinkedList<CategoryNodeDTO>();
+		//categoryNodeList.addAll(categoryNodeRepository.findLeaf(HomeEnum.AMAZON.name(), "Electronics"););
+		categoryNodeList.addAll(categoryNodeRepository.findLeafBySearchIndex(HomeEnum.AMAZON.name(), "Books"));
+		return categoryNodeList;
+	}
+
+	public String getNameFromId(String parentId) {
+		return categoryNodeRepository.getNameFromId(parentId);
+	}
+}

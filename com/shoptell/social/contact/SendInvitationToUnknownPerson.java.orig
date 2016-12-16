@@ -1,0 +1,100 @@
+/***************************************************************************
+ * Copyright (c) 2016 AFFERVE.COM - All rights reserved.
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ * 
+ * Contributors:
+ *     Abhishek Agarwal 	- abhishek@afferve.com
+ *     Ravi Kumar 			- ravi@afferve.com
+ ****************************************************************************/
+package com.shoptell.social.contact;
+
+import java.util.LinkedList;
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.inject.Named;
+
+import org.apache.commons.lang.StringUtils;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
+
+import com.datastax.driver.core.ResultSet;
+import com.shoptell.backoffice.BackofficeConstants;
+import com.shoptell.backoffice.enums.TableEnum;
+import com.shoptell.backoffice.repository.QueryMapper;
+import com.shoptell.backoffice.repository.SelectQuery;
+import com.shoptell.service.SparkPostMailService;
+import com.shoptell.util.stproperties.STProperties;
+
+@Named(value = "SendInvitationToUnknownPerson")
+public class SendInvitationToUnknownPerson {
+	
+	@Inject
+	private STProperties stprop;
+
+	@Inject
+	private SparkPostMailService mailService;
+	
+	@Inject
+	private SelectQuery selectQuery;
+	
+	@Inject
+	private PersonContactRepository personContactRepository;
+	
+	@Inject
+	private PersonContactService personContactService;
+
+	private List<PersonNotInContactDTO> unknownPersonList = null;
+	private List<PersonInContactDTO> knownPersonList = null;
+
+	private int size = 1000;
+	
+	/*@Scheduled(cron = "${send.invite.cron}")*/
+	public void start(){
+		if (Boolean.valueOf(stprop.getValueOrDefault(BackofficeConstants.DISABLE_INVITE_SEND, "true"))) {
+			return;
+		}
+		size = Integer.parseInt(stprop.getValueOrDefault(BackofficeConstants.SEND_INVITE_SIZE, "2000"));
+		init();
+	}
+	
+	@Async
+	public void init() {
+		preProcess();
+		execute();
+		postProcess();
+	}
+
+	private void preProcess() {
+		ResultSet result = selectQuery.selectAll(TableEnum.person_not_in_contact, null, size);
+		unknownPersonList = QueryMapper.personNotInContactDTO().map(result).all();
+		if(unknownPersonList != null && unknownPersonList.size() > 0){
+			knownPersonList = new LinkedList<PersonInContactDTO>();
+		}
+	}
+
+	private void execute() {
+		for(PersonNotInContactDTO unknownPerson : unknownPersonList){
+			String firstName = "Friend";
+			if(StringUtils.isNotBlank(unknownPerson.getFirstName())){
+				firstName = unknownPerson.getFirstName();
+			}
+			mailService.sendInvitationToUnknownPerson(unknownPerson.getEmail(), firstName);
+			knownPersonList.add(personContactService.notInContactToInContact(unknownPerson));
+		}
+	}
+	
+	private void postProcess() {
+		if(unknownPersonList != null && unknownPersonList.size() > 0){
+			personContactRepository.batchDelete(unknownPersonList);
+			unknownPersonList.clear();
+			unknownPersonList = null;
+		}
+		if(knownPersonList != null && knownPersonList.size() > 0){
+			personContactRepository.batchSave(knownPersonList);
+			knownPersonList.clear();
+			knownPersonList = null;
+		}
+	}
+}
